@@ -1,0 +1,6 @@
+{
+  "name": "SenkoPhone",
+  "version": "1.0",
+  "description": "Телефон персонажа Сенко",
+  "entry": "index.js"
+}
