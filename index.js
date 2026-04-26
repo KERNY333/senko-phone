@@ -1,3 +1,4 @@
+console.log("SenkoPhone: index.js загружен");
 (function () {
   // SillyTavern вызывает onInit у расширений
   window["SenkoPhone"] = {
