@@ -5,297 +5,302 @@ import { saveSettingsDebounced } from "../../../../script.js";
 const extensionName = "senko-phone";
 const defaultSettings = { is_active: false };
 
-// Простая структура данных в памяти и localStorage
-window.senkoPhoneData = window.senkoPhoneData || {
-    characters: {} // example: characters["Senko"] = { messages: [], notes: [], profile: {...} }
-};
+// extensions/senko-phone/index.js
+// Правильные пути импортов оставьте если нужно, но этот файл самодостаточен
+// Если у вас есть extension_settings, можно интегрировать позже.
 
-function loadSettings() {
-    extension_settings[extensionName] = extension_settings[extensionName] || {};
-    if (Object.keys(extension_settings[extensionName]).length === 0) {
-        Object.assign(extension_settings[extensionName], defaultSettings);
-    }
-    $("#senko_active_setting").prop("checked", extension_settings[extensionName].is_active);
-}
+(function () {
+  // Защитная инициализация
+  function safeLog(...args) { console.log("Senko Phone:", ...args); }
 
-function onCheckboxChange(event) {
-    const value = Boolean($(event.target).prop("checked"));
-    extension_settings[extensionName].is_active = value;
-    saveSettingsDebounced();
-}
-
-// Utility: save to localStorage
-function saveLocalData() {
+  function saveLocalData() {
     try {
-        localStorage.setItem("senkoPhoneData_v1", JSON.stringify(window.senkoPhoneData));
-    } catch (e) {
-        console.error("Senko Phone: save error", e);
-    }
-}
+      localStorage.setItem("senkoPhoneData_v1", JSON.stringify(window.senkoPhoneData));
+    } catch (e) { console.error("Senko Phone save error", e); }
+  }
 
-// Utility: load from localStorage
-function loadLocalData() {
+  function loadLocalData() {
     try {
-        const raw = localStorage.getItem("senkoPhoneData_v1");
-        if (raw) {
-            const parsed = JSON.parse(raw);
-            window.senkoPhoneData = Object.assign(window.senkoPhoneData || {}, parsed);
+      const raw = localStorage.getItem("senkoPhoneData_v1");
+      if (raw) window.senkoPhoneData = Object.assign(window.senkoPhoneData || {}, JSON.parse(raw));
+    } catch (e) { console.error("Senko Phone load error", e); }
+  }
+
+  // HTML шаблоны
+  const phoneButtonHtml = `
+    <div id="senko_phone_button_wrapper" style="display:inline-block; margin-left:8px;">
+      <button id="senko_open_phone" class="menu_button" title="Открыть телефон персонажа">📱</button>
+    </div>
+  `;
+
+  const drawerHtml = `
+    <div id="senko_phone_drawer" class="senko-drawer" style="display:none;">
+      <div class="senko-drawer-header">
+        <strong>📱 Senko Phone</strong>
+        <div class="senko-drawer-controls">
+          <button id="senko_export_json" class="menu_button">Export</button>
+          <button id="senko_close_phone" class="menu_button">✖</button>
+        </div>
+      </div>
+
+      <div class="senko-tabs">
+        <div class="senko-tab-buttons">
+          <button class="senko_tab_btn" data-tab="messages">Сообщения</button>
+          <button class="senko_tab_btn" data-tab="notes">Заметки</button>
+          <button class="senko_tab_btn" data-tab="profile">Профиль</button>
+        </div>
+
+        <div id="senko_tab_messages" class="senko_tab" style="display:none;">
+          <div style="margin-bottom:8px;">
+            <select id="senko_select_character"></select>
+            <button id="senko_new_character" class="menu_button">Новый</button>
+          </div>
+          <div id="senko_messages_list" class="senko-messages-list"></div>
+          <div class="senko-message-input-row">
+            <input id="senko_message_input" placeholder="Сообщение от персонажа...">
+            <button id="senko_send_message" class="menu_button">Добавить</button>
+            <button id="senko_insert_to_chat" class="menu_button">→ В чат</button>
+          </div>
+        </div>
+
+        <div id="senko_tab_notes" class="senko_tab" style="display:none;">
+          <textarea id="senko_notes_area" class="senko-notes-area"></textarea>
+          <div style="margin-top:8px;"><button id="senko_save_notes" class="menu_button">Сохранить заметки</button></div>
+        </div>
+
+        <div id="senko_tab_profile" class="senko_tab" style="display:none;">
+          <div>
+            <label>Имя: <input id="senko_profile_name"></label><br>
+            <label>Описание: <input id="senko_profile_desc" style="width:100%"></label>
+          </div>
+          <div style="margin-top:8px;"><button id="senko_save_profile" class="menu_button">Сохранить профиль</button></div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Основная инициализация
+  function initSenkoPhone() {
+    safeLog("инициализация...");
+
+    // вставляем стили защиты если ещё нет
+    if (!document.getElementById("senko_phone_styles")) {
+      const style = document.createElement("style");
+      style.id = "senko_phone_styles";
+      style.innerHTML = `
+        .senko-drawer {
+          position: fixed;
+          right: 12px;
+          top: 80px;
+          width: 360px;
+          height: calc(100% - 160px);
+          background: var(--bg-color, #0f1115);
+          color: var(--text-color, #e6e6e6);
+          border-left: 1px solid rgba(255,255,255,0.04);
+          box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+          z-index: 99999 !important;
+          overflow: auto;
+          padding: 12px;
+          border-radius: 8px 0 0 8px;
+          pointer-events: auto;
         }
-    } catch (e) {
-        console.error("Senko Phone: load error", e);
-    }
-}
-
-// Создаем кнопку рядом с полем ввода и сам drawer
-jQuery(async () => {
-    console.log("🦊 Senko Phone: инициализация...");
-
-    // Подождём, пока поле ввода появится (селектор может отличаться в вашей версии ST)
-    const waitFor = (sel, timeout = 5000) => new Promise((res, rej) => {
-        const start = Date.now();
-        const iv = setInterval(() => {
-            const el = $(sel);
-            if (el.length) { clearInterval(iv); res(el); }
-            if (Date.now() - start > timeout) { clearInterval(iv); rej("timeout"); }
-        }, 100);
-    });
-
-    let inputArea;
-    try {
-        inputArea = await waitFor("#input_textarea, #input, textarea, #input_text"); // пробуем несколько селекторов
-    } catch (e) {
-        console.warn("Senko Phone: не нашёл поле ввода по стандартным селекторам.");
-        inputArea = $("textarea").first();
+        .senko-drawer-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+        .senko-tab-buttons { display:flex; gap:6px; margin-bottom:8px; }
+        .senko-messages-list { height:300px; overflow:auto; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; }
+        .senko-message-input-row { margin-top:8px; display:flex; gap:6px; }
+        .senko-notes-area { width:100%; height:300px; }
+      `;
+      document.head.appendChild(style);
     }
 
-    // Добавляем кнопку рядом с полем ввода (обёртка)
-    const phoneButtonHtml = `
-        <div id="senko_phone_button_wrapper" style="display:inline-block; margin-left:8px;">
-            <button id="senko_open_phone" class="menu_button" title="Открыть телефон персонажа">📱</button>
-        </div>
-    `;
-    // Попробуем добавить рядом с кнопкой отправки или полем ввода
-    const sendBtn = $("#send_button, #send, button.send, .send-button").first();
-    if (sendBtn.length) {
-        $(phoneButtonHtml).insertBefore(sendBtn);
-    } else {
-        // fallback: вставим после поля ввода
-        $(phoneButtonHtml).insertAfter(inputArea);
+    // Вставляем кнопку и drawer в body если ещё не вставлены
+    if (!document.getElementById("senko_phone_button_wrapper")) {
+      // пытаемся вставить рядом с кнопкой отправки, иначе в body
+      const sendBtn = document.querySelector("#send_button, #send, button.send, .send-button");
+      if (sendBtn && sendBtn.parentElement) {
+        sendBtn.insertAdjacentHTML("beforebegin", phoneButtonHtml);
+      } else {
+        document.body.insertAdjacentHTML("beforeend", phoneButtonHtml);
+      }
     }
 
-    // Drawer HTML (скрыт по умолчанию)
-    const drawerHtml = `
-        <div id="senko_phone_drawer" style="
-            position: fixed;
-            right: 12px;
-            top: 80px;
-            width: 360px;
-            height: calc(100% - 160px);
-            background: var(--bg-color, #111);
-            color: var(--text-color, #eee);
-            border-left: 1px solid rgba(255,255,255,0.06);
-            box-shadow: 0 8px 30px rgba(0,0,0,0.6);
-            z-index: 9999;
-            display: none;
-            overflow: auto;
-            padding: 12px;
-            border-radius: 8px 0 0 8px;
-        ">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                <strong>📱 Senko Phone</strong>
-                <div>
-                    <button id="senko_export_json" class="menu_button">Export</button>
-                    <button id="senko_close_phone" class="menu_button">✖</button>
-                </div>
-            </div>
+    if (!document.getElementById("senko_phone_drawer")) {
+      document.body.insertAdjacentHTML("beforeend", drawerHtml);
+    }
 
-            <div id="senko_tabs">
-                <div style="display:flex; gap:6px; margin-bottom:8px;">
-                    <button class="senko_tab_btn" data-tab="messages">Сообщения</button>
-                    <button class="senko_tab_btn" data-tab="notes">Заметки</button>
-                    <button class="senko_tab_btn" data-tab="profile">Профиль</button>
-                </div>
-
-                <div id="senko_tab_messages" class="senko_tab" style="display:none;">
-                    <div style="margin-bottom:8px;">
-                        <select id="senko_select_character"></select>
-                        <button id="senko_new_character" class="menu_button">Новый</button>
-                    </div>
-                    <div id="senko_messages_list" style="height:300px; overflow:auto; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px;"></div>
-                    <div style="margin-top:8px; display:flex; gap:6px;">
-                        <input id="senko_message_input" style="flex:1;" placeholder="Сообщение от персонажа...">
-                        <button id="senko_send_message" class="menu_button">Добавить</button>
-                        <button id="senko_insert_to_chat" class="menu_button">→ В чат</button>
-                    </div>
-                </div>
-
-                <div id="senko_tab_notes" class="senko_tab" style="display:none;">
-                    <textarea id="senko_notes_area" style="width:100%; height:300px;"></textarea>
-                    <div style="margin-top:8px;">
-                        <button id="senko_save_notes" class="menu_button">Сохранить заметки</button>
-                    </div>
-                </div>
-
-                <div id="senko_tab_profile" class="senko_tab" style="display:none;">
-                    <div>
-                        <label>Имя: <input id="senko_profile_name"></label><br>
-                        <label>Описание: <input id="senko_profile_desc" style="width:100%"></label>
-                    </div>
-                    <div style="margin-top:8px;">
-                        <button id="senko_save_profile" class="menu_button">Сохранить профиль</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    $("body").append(drawerHtml);
-
-    // Загрузим данные из localStorage
+    // Инициализация данных
+    window.senkoPhoneData = window.senkoPhoneData || { characters: {} };
     loadLocalData();
 
-    // Инициализация UI: список персонажей
+    // UI вспомогательные функции
     function refreshCharacterSelect() {
-        const sel = $("#senko_select_character");
-        sel.empty();
-        const chars = Object.keys(window.senkoPhoneData.characters || {});
-        if (chars.length === 0) {
-            sel.append(`<option value="">(нет персонажей)</option>`);
-        } else {
-            chars.forEach(c => sel.append(`<option value="${c}">${c}</option>`));
-        }
+      const sel = document.getElementById("senko_select_character");
+      if (!sel) return;
+      sel.innerHTML = "";
+      const chars = Object.keys(window.senkoPhoneData.characters || {});
+      if (chars.length === 0) {
+        const opt = document.createElement("option"); opt.value = ""; opt.textContent = "(нет персонажей)"; sel.appendChild(opt);
+      } else {
+        chars.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; sel.appendChild(o); });
+      }
     }
 
     function renderMessagesForCharacter(name) {
-        const list = $("#senko_messages_list");
-        list.empty();
-        if (!name || !window.senkoPhoneData.characters[name]) return;
-        const msgs = window.senkoPhoneData.characters[name].messages || [];
-        msgs.forEach(m => {
-            const el = $(`<div style="padding:6px; margin-bottom:6px; border-radius:6px; background:rgba(255,255,255,0.02);">
-                <div style="font-size:12px; color:var(--muted-color,#aaa)">${m.time || ""}</div>
-                <div>${m.text}</div>
-            </div>`);
-            list.append(el);
-        });
-        list.scrollTop(list[0].scrollHeight);
+      const list = document.getElementById("senko_messages_list");
+      if (!list) return;
+      list.innerHTML = "";
+      if (!name || !window.senkoPhoneData.characters[name]) return;
+      const msgs = window.senkoPhoneData.characters[name].messages || [];
+      msgs.forEach(m => {
+        const el = document.createElement("div");
+        el.className = "senko-message-item";
+        el.style.padding = "6px";
+        el.style.marginBottom = "6px";
+        el.style.borderRadius = "6px";
+        el.style.background = "rgba(255,255,255,0.02)";
+        el.innerHTML = `<div style="font-size:12px;color:var(--muted-color,#aaa)">${m.time || ""}</div><div>${m.text}</div>`;
+        list.appendChild(el);
+      });
+      list.scrollTop = list.scrollHeight;
     }
 
-    // Tab switching
-    $(".senko_tab_btn").on("click", function () {
-        const tab = $(this).data("tab");
-        $(".senko_tab").hide();
-        $(`#senko_tab_${tab}`).show();
-        $(".senko_tab_btn").removeClass("active");
-        $(this).addClass("active");
-    });
-    // default tab
-    $(".senko_tab_btn[data-tab='messages']").click();
+    // Делегированные обработчики
+    document.addEventListener("click", function (e) {
+      const target = e.target;
 
-    // Button handlers
-    $("#senko_open_phone").on("click", () => {
-        $("#senko_phone_drawer").show();
-        refreshCharacterSelect();
-    });
-    $("#senko_close_phone").on("click", () => $("#senko_phone_drawer").hide());
+      if (target && target.id === "senko_open_phone") {
+        e.preventDefault();
+        const drawer = document.getElementById("senko_phone_drawer");
+        if (drawer) drawer.style.display = (drawer.style.display === "none" || !drawer.style.display) ? "block" : "none";
+      }
 
-    $("#senko_new_character").on("click", () => {
+      if (target && target.id === "senko_close_phone") {
+        e.preventDefault();
+        const drawer = document.getElementById("senko_phone_drawer");
+        if (drawer) drawer.style.display = "none";
+      }
+
+      if (target && target.id === "senko_new_character") {
+        e.preventDefault();
         const name = prompt("Имя персонажа:");
         if (!name) return;
         window.senkoPhoneData.characters[name] = window.senkoPhoneData.characters[name] || { messages: [], notes: "", profile: {} };
         saveLocalData();
         refreshCharacterSelect();
-        $("#senko_select_character").val(name).trigger("change");
-    });
+        const sel = document.getElementById("senko_select_character");
+        if (sel) { sel.value = name; sel.dispatchEvent(new Event('change')); }
+      }
 
-    $("#senko_select_character").on("change", function () {
-        const name = $(this).val();
-        if (!name) return;
-        const ch = window.senkoPhoneData.characters[name];
-        $("#senko_notes_area").val(ch.notes || "");
-        $("#senko_profile_name").val(ch.profile?.name || name);
-        $("#senko_profile_desc").val(ch.profile?.desc || "");
-        renderMessagesForCharacter(name);
-    });
-
-    $("#senko_send_message").on("click", () => {
-        const name = $("#senko_select_character").val();
-        if (!name) { toastr.error("Выберите персонажа"); return; }
-        const text = $("#senko_message_input").val().trim();
+      if (target && target.id === "senko_send_message") {
+        e.preventDefault();
+        const sel = document.getElementById("senko_select_character");
+        const name = sel ? sel.value : null;
+        if (!name) { window.toastr?.error("Выберите персонажа"); return; }
+        const input = document.getElementById("senko_message_input");
+        const text = input ? input.value.trim() : "";
         if (!text) return;
         const msg = { text, time: new Date().toLocaleString() };
         window.senkoPhoneData.characters[name].messages.push(msg);
-        $("#senko_message_input").val("");
+        if (input) input.value = "";
         renderMessagesForCharacter(name);
         saveLocalData();
-    });
+      }
 
-    // Вставить выбранное сообщение в поле ввода SillyTavern
-    $("#senko_insert_to_chat").on("click", () => {
-        const name = $("#senko_select_character").val();
-        if (!name) { toastr.error("Выберите персонажа"); return; }
-        const msgs = window.senkoPhoneData.characters[name].messages;
-        if (!msgs || msgs.length === 0) { toastr.info("Нет сообщений"); return; }
+      if (target && target.id === "senko_insert_to_chat") {
+        e.preventDefault();
+        const sel = document.getElementById("senko_select_character");
+        const name = sel ? sel.value : null;
+        if (!name) { window.toastr?.error("Выберите персонажа"); return; }
+        const msgs = window.senkoPhoneData.characters[name].messages || [];
+        if (!msgs.length) { window.toastr?.info("Нет сообщений"); return; }
         const last = msgs[msgs.length - 1].text;
         // Попробуем найти поле ввода ST
-        const stInput = $("#input_textarea, #input, textarea, #input_text").first();
-        if (stInput.length) {
-            stInput.val(last);
-            stInput.trigger("input");
-            toastr.success("Текст вставлен в поле ввода");
+        const stInput = document.querySelector("#input_textarea, #input, textarea, #input_text");
+        if (stInput) {
+          stInput.value = last;
+          stInput.dispatchEvent(new Event('input', { bubbles: true }));
+          window.toastr?.success("Текст вставлен в поле ввода");
         } else {
-            // fallback: копируем в буфер
-            navigator.clipboard.writeText(last).then(() => toastr.success("Текст скопирован в буфер"));
+          navigator.clipboard.writeText(last).then(() => window.toastr?.success("Текст скопирован в буфер"));
         }
-    });
+      }
 
-    // Notes save
-    $("#senko_save_notes").on("click", () => {
-        const name = $("#senko_select_character").val();
-        if (!name) { toastr.error("Выберите персонажа"); return; }
-        window.senkoPhoneData.characters[name].notes = $("#senko_notes_area").val();
+      if (target && target.id === "senko_save_notes") {
+        e.preventDefault();
+        const sel = document.getElementById("senko_select_character");
+        const name = sel ? sel.value : null;
+        if (!name) { window.toastr?.error("Выберите персонажа"); return; }
+        const notes = document.getElementById("senko_notes_area").value;
+        window.senkoPhoneData.characters[name].notes = notes;
         saveLocalData();
-        toastr.success("Заметки сохранены");
-    });
+        window.toastr?.success("Заметки сохранены");
+      }
 
-    // Profile save
-    $("#senko_save_profile").on("click", () => {
-        const name = $("#senko_select_character").val();
-        if (!name) { toastr.error("Выберите персонажа"); return; }
-        window.senkoPhoneData.characters[name].profile = {
-            name: $("#senko_profile_name").val(),
-            desc: $("#senko_profile_desc").val()
+      if (target && target.id === "senko_save_profile") {
+        e.preventDefault();
+        const sel = document.getElementById("senko_select_character");
+        const name = sel ? sel.value : null;
+        if (!name) { window.toastr?.error("Выберите персонажа"); return; }
+        const profile = {
+          name: document.getElementById("senko_profile_name").value,
+          desc: document.getElementById("senko_profile_desc").value
         };
+        window.senkoPhoneData.characters[name].profile = profile;
         saveLocalData();
-        toastr.success("Профиль сохранён");
-    });
+        window.toastr?.success("Профиль сохранён");
+      }
 
-    // Export JSON (скачать файл)
-    $("#senko_export_json").on("click", () => {
+      if (target && target.id === "senko_export_json") {
+        e.preventDefault();
         const dataStr = JSON.stringify(window.senkoPhoneData, null, 2);
         const blob = new Blob([dataStr], { type: "application/json" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        a.href = url;
-        a.download = "senko_phone_data.json";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
+        a.href = url; a.download = "senko_phone_data.json"; document.body.appendChild(a); a.click(); a.remove();
         URL.revokeObjectURL(url);
+      }
     });
 
-    // Инициализация списка персонажей при старте
-    refreshCharacterSelect();
-    // Если есть персонаж Senko — выбрать его
-    if (window.senkoPhoneData.characters["Senko"]) {
-        $("#senko_select_character").val("Senko").trigger("change");
-    } else {
-        // создадим Senko по умолчанию
-        window.senkoPhoneData.characters["Senko"] = { messages: [], notes: "", profile: { name: "Senko", desc: "" } };
-        saveLocalData();
-        refreshCharacterSelect();
-        $("#senko_select_character").val("Senko").trigger("change");
-    }
+    // change handler for select
+    document.addEventListener("change", function (e) {
+      const t = e.target;
+      if (t && t.id === "senko_select_character") {
+        const name = t.value;
+        if (!name) return;
+        const ch = window.senkoPhoneData.characters[name];
+        document.getElementById("senko_notes_area").value = ch.notes || "";
+        document.getElementById("senko_profile_name").value = ch.profile?.name || name;
+        document.getElementById("senko_profile_desc").value = ch.profile?.desc || "";
+        renderMessagesForCharacter(name);
+      }
+    });
 
-    // Сохраняем настройки
-    loadSettings();
-});
+    // Инициализация UI
+    refreshCharacterSelect();
+    if (!window.senkoPhoneData.characters["Senko"]) {
+      window.senkoPhoneData.characters["Senko"] = { messages: [], notes: "", profile: { name: "Senko", desc: "" } };
+      saveLocalData();
+      refreshCharacterSelect();
+    }
+    // выбрать Senko
+    const sel = document.getElementById("senko_select_character");
+    if (sel) { sel.value = "Senko"; sel.dispatchEvent(new Event('change')); }
+
+    safeLog("готово");
+  }
+
+  // Запуск после загрузки
+  function start() {
+    try {
+      initSenkoPhone();
+    } catch (e) {
+      console.error("Senko Phone init error", e);
+    }
+  }
+
+  if (document.readyState === "complete") {
+    setTimeout(start, 200);
+  } else {
+    window.addEventListener("load", () => setTimeout(start, 200));
+  }
+})();
