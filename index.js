@@ -1,44 +1,73 @@
-import { registerExtension } from '../../../extensions.js';
-import { eventSource, event_types } from '../../../../script.js'; 
+// Правильные пути импорта для third-party расширений
+import { extension_settings } from "../../../extensions.js";
+import { saveSettingsDebounced } from "../../../../script.js";
 
-// Функция, которая создает твой интерфейс
-function setupMyExtension() {
-    console.log("Senko Phone: Отрисовка интерфейса...");
+const extensionName = "senko-phone";
+const defaultSettings = {
+    is_active: false
+};
 
-    // 1. Создаем контейнер в меню настроек расширений
+// Загрузка или инициализация настроек
+function loadSettings() {
+    extension_settings[extensionName] = extension_settings[extensionName] || {};
+    if (Object.keys(extension_settings[extensionName]).length === 0) {
+        Object.assign(extension_settings[extensionName], defaultSettings);
+    }
+    
+    // Обновляем галочку в интерфейсе при загрузке
+    $("#senko_active_setting").prop("checked", extension_settings[extensionName].is_active);
+}
+
+// Сохранение настроек при клике
+function onCheckboxChange(event) {
+    const value = Boolean($(event.target).prop("checked"));
+    extension_settings[extensionName].is_active = value;
+    saveSettingsDebounced();
+}
+
+// Главная функция, которая ждет загрузки интерфейса ST
+jQuery(async () => {
+    console.log("🦊 Senko Phone: Загрузка по официальному шаблону...");
+
+    // Создаем HTML-блок нашего меню (используем классы ST для красивого отображения)
     const settingsHtml = `
-        <div class="senko_phone_settings">
-            <h4>🦊 Senko Phone</h4>
-            <div class="inline-buttons">
-                <button id="senko_test_btn" class="menu_button">
-                    Проверить связь
-                </button>
+        <div class="senko-phone-container">
+            <hr class="sys--m">
+            <div class="inline-drawer">
+                <div class="inline-drawer-toggle inline-drawer-header">
+                    <b>🦊 Senko Phone</b>
+                    <div class="inline-drawer-icon fa-solid fa-chevron-down down"></div>
+                </div>
+                <div class="inline-drawer-content" style="display: none;">
+                    <label for="senko_active_setting">
+                        <input id="senko_active_setting" type="checkbox"> Включить телефон
+                    </label>
+                    <br><br>
+                    <button id="senko_test_button" class="menu_button">
+                        📱 Вызвать Сенко
+                    </button>
+                </div>
             </div>
         </div>
     `;
 
-    // Добавляем в правую панель (вкладка расширений)
+    // Добавляем этот HTML в панель расширений
     $("#extensions_settings").append(settingsHtml);
 
-    // 2. Слушаем клик по кнопке
-    $("#senko_test_btn").on("click", () => {
-        alert("Моши-моши! Расширение Senko Phone активно.");
-        console.log("Кнопка расширения нажата успешно!");
+    // Вешаем обработчик на чекбокс
+    $("#senko_active_setting").on("input", onCheckboxChange);
+
+    // Вешаем обработчик на кнопку (используем всплывающее уведомление ST)
+    $("#senko_test_button").on("click", () => {
+        toastr.success("Ало! Сенко на связи!", "Senko Phone");
     });
-}
 
-// Главная функция инициализации
-function init() {
-    console.log("Senko Phone: Расширение загружено, ждем готовности системы...");
-
-    // Ждем, когда SillyTavern полностью загрузит интерфейс
-    eventSource.on(event_types.APP_READY, () => {
-        setupMyExtension();
+    // Оживляем сворачивающееся меню (аккордеон)
+    $(".senko-phone-container .inline-drawer-toggle").on("click", function () {
+        $(this).toggleClass("open");
+        $(this).next(".inline-drawer-content").slideToggle(200);
     });
-}
 
-// Регистрация в реестре SillyTavern
-registerExtension({
-    name: "senko-phone",
-    init: init
+    // Загружаем настройки
+    loadSettings();
 });
