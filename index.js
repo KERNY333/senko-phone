@@ -1,9 +1,3 @@
-// extensions/senko-phone/senko-phone.js
-import { extension_settings } from "../../../extensions.js";
-import { saveSettingsDebounced } from "../../../../script.js";
-
-const extensionName = "senko-phone";
-const defaultSettings = { is_active: false };
 
 // --- Надёжная вставка кнопки и drawer + MutationObserver + левое позиционирование
 (function () {
