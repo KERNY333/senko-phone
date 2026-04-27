@@ -1,35 +1,43 @@
-// Импортируем инструменты (путь подкорректируй в зависимости от того, где лежит папка)
-// Если в public/extensions/ -> ../../extensions.js
-// Если в public/scripts/extensions/third-party/ -> ../../../../extensions.js
 import { registerExtension } from '../../../extensions.js';
 import { eventSource, event_types } from '../../../../script.js'; 
 
-function init() {
-    console.log("Senko phone: Инициализация...");
+// Функция, которая создает твой интерфейс
+function setupMyExtension() {
+    console.log("Senko Phone: Отрисовка интерфейса...");
 
-    // Используем событие APP_READY, чтобы быть уверенными, что меню уже отрисовано
-    eventSource.on(event_types.APP_READY, () => {
-        console.log("Senko phone: Интерфейс готов, добавляю кнопку.");
+    // 1. Создаем контейнер в меню настроек расширений
+    const settingsHtml = `
+        <div class="senko_phone_settings">
+            <h4>🦊 Senko Phone</h4>
+            <div class="inline-buttons">
+                <button id="senko_test_btn" class="menu_button">
+                    Проверить связь
+                </button>
+            </div>
+        </div>
+    `;
 
-        const menu = document.getElementById('extensions_menu');
-        
-        if (menu) {
-            const button = document.createElement('div');
-            button.innerText = "🦊 Senko Phone";
-            button.classList.add('menu_button');
-            button.style.cursor = 'pointer'; // Чтобы было понятно, что кликабельно
-            
-            button.onclick = () => {
-                alert("Магия Сенко активирована!");
-            };
-            
-            menu.appendChild(button);
-        } else {
-            console.error("Senko phone: Не нашел элемент #extensions_menu");
-        }
+    // Добавляем в правую панель (вкладка расширений)
+    $("#extensions_settings").append(settingsHtml);
+
+    // 2. Слушаем клик по кнопке
+    $("#senko_test_btn").on("click", () => {
+        alert("Моши-моши! Расширение Senko Phone активно.");
+        console.log("Кнопка расширения нажата успешно!");
     });
 }
 
+// Главная функция инициализации
+function init() {
+    console.log("Senko Phone: Расширение загружено, ждем готовности системы...");
+
+    // Ждем, когда SillyTavern полностью загрузит интерфейс
+    eventSource.on(event_types.APP_READY, () => {
+        setupMyExtension();
+    });
+}
+
+// Регистрация в реестре SillyTavern
 registerExtension({
     name: "senko-phone",
     init: init
