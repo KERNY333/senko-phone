@@ -1,8 +1,9 @@
-{
     "display_name": "Senko phone",
-    "name": "senko-phone",
-    "version": "1.0.0",
-    "description": "Описание",
+    "loading_order": 20,
+    "requires": [],
+    "optional": [],
+    "js": "index.js",
+    "css": "style.css",
     "author": "kerny",
-    "entrypoint": "index.js"
-}
+    "version": "1.0.0",
+    "homePage": "https://github.com/KERNY333/senko-phone"
