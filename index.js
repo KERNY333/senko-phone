@@ -1,5 +1,5 @@
 // Импорт API SillyTavern (если используешь модули)
-import { registerExtension, getContext } from "../../../extensions.js";
+import { registerExtension, getContext } from '../../../extensions.js';
 
 function init() {
     console.log("Мое расширение успешно загружено!");
@@ -16,6 +16,6 @@ function init() {
 
 // Регистрация расширения
 registerExtension({
-    name: "my-awesome-extension",
+    name: "senko-phone",
     init: init
 });
