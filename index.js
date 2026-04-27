@@ -1,20 +1,35 @@
-// Импорт API SillyTavern (если используешь модули)
-import { registerExtension, getContext } from '../extensions.js';
+// Импортируем инструменты (путь подкорректируй в зависимости от того, где лежит папка)
+// Если в public/extensions/ -> ../../extensions.js
+// Если в public/scripts/extensions/third-party/ -> ../../../../extensions.js
+import { registerExtension } from '../../extensions.js';
+import { eventSource, event_types } from '../../../script.js'; 
 
 function init() {
-    console.log("Мое расширение успешно загружено!");
+    console.log("Senko phone: Инициализация...");
 
-    // Пример добавления кнопки в верхнее меню расширений
-    const button = document.createElement('div');
-    button.innerText = "🚀 Жми меня";
-    button.classList.add('menu_button');
-    button.onclick = () => alert("Магия работает!");
-    
-    // Добавляем кнопку в интерфейс
-    document.getElementById('extensions_menu').appendChild(button);
+    // Используем событие APP_READY, чтобы быть уверенными, что меню уже отрисовано
+    eventSource.on(event_types.APP_READY, () => {
+        console.log("Senko phone: Интерфейс готов, добавляю кнопку.");
+
+        const menu = document.getElementById('extensions_menu');
+        
+        if (menu) {
+            const button = document.createElement('div');
+            button.innerText = "🦊 Senko Phone";
+            button.classList.add('menu_button');
+            button.style.cursor = 'pointer'; // Чтобы было понятно, что кликабельно
+            
+            button.onclick = () => {
+                alert("Магия Сенко активирована!");
+            };
+            
+            menu.appendChild(button);
+        } else {
+            console.error("Senko phone: Не нашел элемент #extensions_menu");
+        }
+    });
 }
 
-// Регистрация расширения
 registerExtension({
     name: "senko-phone",
     init: init
