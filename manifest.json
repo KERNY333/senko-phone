@@ -1,3 +1,4 @@
+{
     "display_name": "Senko phone",
     "loading_order": 20,
     "requires": [],
@@ -7,3 +8,4 @@
     "author": "kerny",
     "version": "1.0.0",
     "homePage": "https://github.com/KERNY333/senko-phone"
+}
