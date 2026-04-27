@@ -2,7 +2,7 @@
 // Если в public/extensions/ -> ../../extensions.js
 // Если в public/scripts/extensions/third-party/ -> ../../../../extensions.js
 import { registerExtension } from '../../extensions.js';
-import { eventSource, event_types } from '../../../script.js'; 
+import { eventSource, event_types } from '../script.js'; 
 
 function init() {
     console.log("Senko phone: Инициализация...");
