@@ -1,6 +1,8 @@
 {
-  "name": "senko-phone",
-  "version": "1.0",
-  "description": "Телефон персонажа Сенко",
-  "entry": "index.js"
+    "display_name": "Senko phone",
+    "name": "senko-phone",
+    "version": "1.0.0",
+    "description": "Описание",
+    "author": "kerny",
+    "entrypoint": "index.js"
 }
