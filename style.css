@@ -1,1 +1,25 @@
+/* Senko Phone: базовые стили */
+#senko_phone_drawer {
+  position: fixed;
+  left: 12px;        /* теперь слева */
+  right: auto;
+  top: 80px;
+  width: 360px;
+  height: calc(100% - 160px);
+  background: var(--bg-color, #0f1115);
+  color: var(--text-color, #e6e6e6);
+  border-right: 1px solid rgba(255,255,255,0.04);
+  box-shadow: 8px 0 30px rgba(0,0,0,0.6);
+  z-index: 99999 !important;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 0 8px 8px 0;
+  pointer-events: auto;
+}
+
+/* Немного улучшений UI */
+#senko_phone_button_wrapper { margin-left: 8px; display:inline-block; vertical-align: middle; }
+.senko-messages-list { height:300px; overflow:auto; background:rgba(255,255,255,0.02); padding:8px; border-radius:6px; }
+.senko-message-item { padding:6px; margin-bottom:6px; border-radius:6px; background:rgba(255,255,255,0.02); }
+.senko-tab-buttons button.active { background: rgba(255,255,255,0.04); }
 
